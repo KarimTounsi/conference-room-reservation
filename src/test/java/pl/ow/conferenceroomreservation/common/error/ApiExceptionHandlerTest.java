@@ -116,6 +116,17 @@ class ApiExceptionHandlerTest {
                 .andExpect(jsonPath("$.title").value("Conference room name already exists"));
     }
 
+    /**
+     * The real shape of an exclusion violation: Hibernate reports no constraint name and the server
+     * message names nothing either, so only SQLSTATE is left to decide.
+     */
+    @Test
+    void shouldMapExclusionViolationBySqlStateWhenTheMessageNamesNothing() throws Exception {
+        mockMvc.perform(get("/probe/nameless-exclusion"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("/problems/reservation-overlap"));
+    }
+
     @Test
     void shouldNotClaimConflictForAnUnrecognisedConstraint() throws Exception {
         mockMvc.perform(get("/probe/unknown-constraint"))
@@ -188,6 +199,12 @@ class ApiExceptionHandlerTest {
             throw integrityViolation(null, "23505",
                     "podwojna wartosc klucza narusza ograniczenie unikalnosci "
                             + "\"uq_conference_room_name\"");
+        }
+
+        @GetMapping("/probe/nameless-exclusion")
+        void namelessExclusion() {
+            // No constraint name anywhere: not from Hibernate, not in the message text.
+            throw integrityViolation(null, "23P01", "conflit de valeurs de cle");
         }
 
         @GetMapping("/probe/unknown-constraint")

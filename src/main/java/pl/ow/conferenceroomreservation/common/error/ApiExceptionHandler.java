@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -39,8 +41,26 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             "Conference room name already exists",
             "A conference room with that name already exists");
 
+    private static final ConstraintProblem RESERVATION_OVERLAP = new ConstraintProblem(
+            "/problems/reservation-overlap",
+            "Reservation time conflict",
+            // Deliberately general: reaching this path means two requests raced, and the handler
+            // sees only the exception - not the room, not the requested interval.
+            "The room is already booked for the requested time range");
+
     private static final Map<String, ConstraintProblem> KNOWN_CONSTRAINTS = Map.of(
-            "uq_conference_room_name", ROOM_NAME_TAKEN);
+            "uq_conference_room_name", ROOM_NAME_TAKEN,
+            "excl_reservation_active_overlap", RESERVATION_OVERLAP);
+
+    /**
+     * The one violation whose message names nothing in any language: Hibernate finds constraint
+     * names by matching the literal text {@code constraint "}, which an exclusion violation never
+     * contains. Keying on SQLSTATE is safe only because the schema declares exactly one exclusion
+     * constraint. Nothing else belongs here - 23505 covers the primary keys as well as the room
+     * name, so mapping it wholesale would dress a server fault as a business conflict.
+     */
+    private static final Map<String, ConstraintProblem> BY_SQL_STATE = Map.of(
+            "23P01", RESERVATION_OVERLAP);
 
     private record ConstraintProblem(String type, String title, String detail) {
     }
@@ -94,6 +114,10 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         if (name != null) {
             return KNOWN_CONSTRAINTS.get(name);
         }
+        ConstraintProblem bySqlState = BY_SQL_STATE.get(violation.getSQLState());
+        if (bySqlState != null) {
+            return bySqlState;
+        }
         String message = violation.getSQLException() == null
                 ? violation.getMessage()
                 : violation.getSQLException().getMessage();
@@ -120,6 +144,27 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             }
         }
         return null;
+    }
+
+    /**
+     * Both concurrency failures a caller can hit, answered identically.
+     *
+     * <p>{@link OptimisticLockingFailureException} means someone changed the row first.
+     * {@link PessimisticLockingFailureException} means the database killed this statement as a
+     * deadlock victim: when many requests insert into the same excluded slot at once they queue on
+     * the GiST index, and PostgreSQL resolves the tangle by aborting some of them. The application
+     * takes no pessimistic locks of its own. Either way the request lost to concurrent activity on
+     * the same resource, which is what 409 means.
+     */
+    @ExceptionHandler({OptimisticLockingFailureException.class, PessimisticLockingFailureException.class})
+    ResponseEntity<ProblemDetail> handleConcurrencyFailure(Exception exception) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setType(URI.create("/problems/concurrent-modification"));
+        problem.setTitle("Concurrent modification");
+        problem.setDetail("The resource was modified concurrently, please retry");
+        // The exception message can be a multi-line report from the server, so only the type is logged.
+        log.debug("Concurrency failure ({})", exception.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
     @ExceptionHandler(Exception.class)
