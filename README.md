@@ -1,5 +1,7 @@
 # Conference Room Reservation API
 
+[![CI](https://github.com/KarimTounsi/conference-room-reservation/actions/workflows/ci.yml/badge.svg)](https://github.com/KarimTounsi/conference-room-reservation/actions/workflows/ci.yml)
+
 A Spring Boot REST API for managing conference rooms and their reservations. Active reservations of
 the same room can never overlap, and that holds when requests arrive at the same instant.
 
