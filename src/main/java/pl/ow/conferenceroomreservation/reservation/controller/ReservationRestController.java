@@ -38,9 +38,11 @@ public class ReservationRestController {
     @Operation(summary = "Book a room",
             description = "The interval is half-open: a booking ending at 10:00 does not clash with "
                     + "one starting at 10:00.")
-    // Successes are generated from the method signature. Failures must declare their content, or
-    // springdoc would document them with the success schema. This endpoint carries the whole error
-    // contract for the API; the other methods do not repeat it.
+    // springdoc infers 200 from the signature and cannot tell that this method answers 201, so the
+    // success code is declared. Failures must declare their content too, or they would be
+    // documented with the success schema. This endpoint carries the whole error contract for the
+    // API; the other methods do not repeat it.
+    @ApiResponse(responseCode = "201", description = "Reservation created")
     @ApiResponse(responseCode = "400", description = "Validation failed, or endTime is not after startTime",
             content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                     schema = @Schema(implementation = ProblemDetail.class)))
@@ -77,6 +79,7 @@ public class ReservationRestController {
                     + "returns 204. The slot is released for new bookings; the row is kept as an "
                     + "audit trail. If two cancellations of the same reservation race, one is "
                     + "answered 409 - the reservation is still cancelled, and a retry returns 204.")
+    @ApiResponse(responseCode = "204", description = "Reservation cancelled")
     @DeleteMapping("/reservations/{reservationId}")
     public ResponseEntity<Void> cancelReservation(@PathVariable Long reservationId) {
         reservationService.cancelReservation(reservationId);

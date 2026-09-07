@@ -1,6 +1,7 @@
 package pl.ow.conferenceroomreservation.room.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -26,6 +27,8 @@ public class ConferenceRoomRestController {
     private final ConferenceRoomService conferenceRoomService;
 
     @Operation(summary = "Add a conference room")
+    // Declared because springdoc infers 200 from the signature and cannot see the 201.
+    @ApiResponse(responseCode = "201", description = "Room created")
     @PostMapping
     public ResponseEntity<ConferenceRoomResponse> createRoom(
             @Valid @RequestBody CreateConferenceRoomRequest request) {
