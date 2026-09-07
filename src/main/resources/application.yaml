@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: conference-room-reservation
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
