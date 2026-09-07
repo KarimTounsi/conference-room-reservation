@@ -136,11 +136,14 @@ class ReservationRepositoryTest {
         assertThat(active.getFirst().getStartTime()).isEqualTo(at("09:00"));
     }
 
-    @DisplayName("date window filter, every combination of present and absent bounds")
+    @DisplayName("date window filter: each bound present or absent, and a window matching nothing")
     @ParameterizedTest(name = "from={0} to={1} -> {2} match(es)")
     @CsvSource(nullValues = "null", value = {
             "null,  null,  2",
             "10:30, null,  1",
+            // Only an upper bound: the sole case exercising that half of the predicate. Drop it
+            // and deleting the whole "to" branch of the specification leaves the suite green.
+            "null,  10:30, 1",
             "09:30, 11:30, 2",
             // A window disjoint from both reservations: the one case proving the filter can
             // return nothing at all.

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -51,13 +52,13 @@ class OpenApiContractTest {
     void shouldDocumentCoreRoomAndReservationEndpoints() {
         DocumentContext document = apiDocs();
 
-        assertThat(document.read("$.paths", java.util.Map.class))
-                .containsKeys("/api/v1/rooms", "/api/v1/rooms/{roomId}",
-                        "/api/v1/rooms/{roomId}/reservations", "/api/v1/reservations/{reservationId}");
+        Map<String, Object> paths = document.read("$.paths");
+        assertThat(paths).containsKeys("/api/v1/rooms", "/api/v1/rooms/{roomId}",
+                "/api/v1/rooms/{roomId}/reservations", "/api/v1/reservations/{reservationId}");
 
         String booking = "$.paths.['/api/v1/rooms/{roomId}/reservations'].post.responses";
-        assertThat(document.read(booking, java.util.Map.class))
-                .containsKeys("201", "400", "404", "409");
+        Map<String, Object> bookingResponses = document.read(booking);
+        assertThat(bookingResponses).containsKeys("201", "400", "404", "409");
         for (String failure : new String[] {"400", "404", "409"}) {
             assertThat(document.read(
                     booking + ".['" + failure + "'].content.['application/problem+json'].schema.$ref",

@@ -17,8 +17,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import pl.ow.conferenceroomreservation.common.time.InvalidTimeRangeException;
 import pl.ow.conferenceroomreservation.common.time.TimeRange;
 import pl.ow.conferenceroomreservation.reservation.dto.CreateReservationRequest;
@@ -34,7 +32,6 @@ import pl.ow.conferenceroomreservation.room.exception.ConferenceRoomNotFoundExce
 import pl.ow.conferenceroomreservation.room.repository.ConferenceRoomRepository;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class ReservationServiceImplTest {
 
     private static final OffsetDateTime NINE = OffsetDateTime.parse("2026-09-10T09:00:00+02:00");
