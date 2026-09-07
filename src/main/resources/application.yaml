@@ -1,6 +1,11 @@
 spring:
   application:
     name: conference-room-reservation
+  datasource:
+    # Overridden by SPRING_DATASOURCE_* in the container; these are the local Compose defaults.
+    url: jdbc:postgresql://localhost:5432/conference_room_reservation
+    username: postgres
+    password: postgres
   jpa:
     open-in-view: false
     hibernate:
