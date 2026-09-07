@@ -53,11 +53,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             "excl_reservation_active_overlap", RESERVATION_OVERLAP);
 
     /**
-     * The one violation whose message names nothing in any language: Hibernate finds constraint
-     * names by matching the literal text {@code constraint "}, which an exclusion violation never
-     * contains. Keying on SQLSTATE is safe only because the schema declares exactly one exclusion
-     * constraint. Nothing else belongs here - 23505 covers the primary keys as well as the room
-     * name, so mapping it wholesale would dress a server fault as a business conflict.
+     * The one violation no server message names, in any language. Safe to key on SQLSTATE only
+     * because the schema declares a single exclusion constraint. Nothing else belongs here: 23505
+     * covers the primary keys too, so mapping it would dress a server fault as a business conflict.
      */
     private static final Map<String, ConstraintProblem> BY_SQL_STATE = Map.of(
             "23P01", RESERVATION_OVERLAP);
@@ -83,10 +81,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ConstraintProblem known = resolveKnownConstraint(violation);
         if (known == null) {
             // An integrity violation we did not design as a business rule is a bug, not a 409.
-            log.error("Unmapped data integrity violation (constraint={} sqlState={})",
-                    violation == null ? null : violation.getConstraintName(),
-                    violation == null ? null : violation.getSQLState(),
-                    exception);
+            log.error("Unmapped data integrity violation", exception);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(internalServerError());
         }
@@ -147,14 +142,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Both concurrency failures a caller can hit, answered identically.
-     *
-     * <p>{@link OptimisticLockingFailureException} means someone changed the row first.
-     * {@link PessimisticLockingFailureException} means the database killed this statement as a
-     * deadlock victim: when many requests insert into the same excluded slot at once they queue on
-     * the GiST index, and PostgreSQL resolves the tangle by aborting some of them. The application
-     * takes no pessimistic locks of its own. Either way the request lost to concurrent activity on
-     * the same resource, which is what 409 means.
+     * Someone changed the row first, or - under heavy contention on one slot - PostgreSQL aborted
+     * this statement as a deadlock victim on the GiST index. The application takes no pessimistic
+     * locks of its own. Either way the request lost a race for the same resource, which is a 409.
      */
     @ExceptionHandler({OptimisticLockingFailureException.class, PessimisticLockingFailureException.class})
     ResponseEntity<ProblemDetail> handleConcurrencyFailure(Exception exception) {
