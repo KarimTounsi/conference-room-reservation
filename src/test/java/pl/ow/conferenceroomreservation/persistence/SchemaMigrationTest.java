@@ -1,5 +1,6 @@
 package pl.ow.conferenceroomreservation.persistence;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import jakarta.persistence.EntityManager;
@@ -25,6 +26,7 @@ class SchemaMigrationTest {
 
     private static final OffsetDateTime NINE = OffsetDateTime.parse("2026-09-10T09:00:00+02:00");
     private static final OffsetDateTime TEN = OffsetDateTime.parse("2026-09-10T10:00:00+02:00");
+    private static final OffsetDateTime ELEVEN = OffsetDateTime.parse("2026-09-10T11:00:00+02:00");
 
     @Autowired
     private EntityManager entityManager;
@@ -64,6 +66,43 @@ class SchemaMigrationTest {
             }
         }
         throw new AssertionError("Expected a violation of " + constraintName + " but got: " + thrown);
+    }
+
+    @Test
+    void shouldRejectOverlappingActiveReservationsOfTheSameRoom() {
+        Long roomId = insertRoom("Alpha");
+        insertReservation(roomId, NINE, ELEVEN, "ACTIVE");
+
+        assertThatThrownBy(() -> insertReservation(roomId, TEN, ELEVEN, "ACTIVE"))
+                .satisfies(thrown -> assertViolates(thrown, "excl_reservation_active_overlap"));
+    }
+
+    @Test
+    void shouldAllowTouchingReservationsOfTheSameRoom() {
+        Long roomId = insertRoom("Beta");
+        insertReservation(roomId, NINE, TEN, "ACTIVE");
+
+        assertThatCode(() -> insertReservation(roomId, TEN, ELEVEN, "ACTIVE"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldAllowOverlapWhenTheExistingReservationIsCancelled() {
+        Long roomId = insertRoom("Gamma");
+        insertReservation(roomId, NINE, ELEVEN, "CANCELLED");
+
+        assertThatCode(() -> insertReservation(roomId, TEN, ELEVEN, "ACTIVE"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldAllowOverlapAcrossDifferentRooms() {
+        Long first = insertRoom("Delta");
+        Long second = insertRoom("Epsilon");
+        insertReservation(first, NINE, ELEVEN, "ACTIVE");
+
+        assertThatCode(() -> insertReservation(second, NINE, ELEVEN, "ACTIVE"))
+                .doesNotThrowAnyException();
     }
 
     @Test
